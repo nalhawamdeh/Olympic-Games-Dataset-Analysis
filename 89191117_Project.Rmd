@@ -1,0 +1,155 @@
+---
+title: "Olympic Games 1896-2020 Dataset Analysis"
+author: "Nadeen Al Hawamdeh"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = T, message = T, warning = F, error =T)
+library(readxl)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(stringi)
+```
+
+
+## Problem Presentation and Description
+
+The [Olympic Games](https://en.wikipedia.org/wiki/Olympic_Games) are a major, international multi-sport competition normally held every 4 years, where atheletes from 206 countries participate. Ever since its inaugural games in the year 1896 in Athens, Greece, they have become an exciting global event waited for by millions of viewers from around the world.
+
+In order for an athlete to participate in the Olympics, they must first comply with the [Olympic Charter](https://olympics.com/ioc/olympic-charter) and follow the rules of the International Federation (IF) governing their sport. The International Federations establish the rules and organize qualifying events, while the National Olympic Committee (NOC) of the athlete’s country supports the athlete and is responsible for entering them for the Games.
+
+NOCs earn national quota spots to compete at each of these international, multi-sport events, which are then allocated to individual athletes and teams. Athletes are selected to fill these quota spots and represent their respective team at the Olympic Games based on a set of criteria and standards specific to their sport. These standards are established by International Federations that govern each sport on a global level and administered by National Federations. National Federations utilize subjective selection procedures such as evaluation at competitions and team selection camps, while other team selections are results-based pending placement at trials competition and well-defined scoring systems.
+
+Data analysis of previous athletes could really help all NOCs with selecting the athletes representing them in an upcoming season and understanding previous patterns and trends in order to improve for future participation.
+
+
+## Presentation of Data
+
+The data to be used in this analysis is a set that contains information on all athletes who participated in the Olympic Games in Greece in 1896 until the Tokyo Games in 2020.
+
+The data at hand contains 275,643 rows and 9 columns. The columns are "X" (the index of the row), "Name" (the name of the Olympic athlete), "Sex" (gender of the athlete), "Age" (age of the athlete), "Team" (the country the athlete is representing), "Year" (the year of the Olympic games which athlete participated in), "Season" (the season of the Olympic games the athlete participated in), "Sport" (the sport which the athlete played in that year and season), "Medal" (the type of medal the athlete won, 0 represents no medal, 1 represents a bronze medal, 2 represents a silver medal and 3 represents a gold medal). The column "Game" contained both the "Year" and "Season" therefore it was removed to avoid redundancy.
+
+
+```{r}
+olympics_data <- read.csv("C:/Users/nadee/Desktop/89191117_Project/All Year Olympic Dataset (with 2020 Tokyo Olympics).csv")
+olympics_data <- olympics_data %>% select(-Games)
+rmarkdown::paged_table(olympics_data)
+```
+
+## Exploratory Data Analysis and Visualisation of the Data
+
+One statistic that would be quite interesting to NOCs and IFs is the ratio of men to women who have participated in the Olympic Games since 1896 until 2020. The values for the "Sex" column had mixed values (Female, Male, M, and F), therefore replacing all instances of "Male" and "Female" with "M" and "F" respectively was necessary before summarizing the data.The data also contains athletes who participated several times, therefore unique() was used to obtain the distinct names of Athletes as to avoid counting duplicates. Below we have a table that shows the number of women and the number of men who participated in the Games from 1896 - 2020.
+
+
+```{r}
+olympics_data$Sex[olympics_data$Sex=="Male"] <- "M"
+olympics_data$Sex[olympics_data$Sex=="Female"] <- "F"
+
+gender_count <- olympics_data %>%
+  select(Name, Sex) %>%
+  unique() %>%
+  group_by(Sex) %>%
+  summarise(Total=n())
+
+rmarkdown::paged_table(gender_count)
+```
+
+
+The Pie Chart below displays the total number of men and women who participated in the Olympics since the first games in Greece 1896 to the Games in Tokyo 2020
+
+
+```{r}
+gender_count %>%
+  ggplot(aes(x="",y=Total,fill=Sex)) + 
+  geom_bar(stat="identity", width=1) + 
+  geom_text(aes(label=Total), position=position_stack(vjust=0.5)) + 
+  coord_polar("y", start=0) + 
+  labs(title= "Total Male and Female Olympics Participants 1896-2020") +
+  theme_void()
+```
+
+<br>
+Another interesting statistic to look at is the number of participants in the Summer Olympics vs. the number of participants in the Winter Olympics. IOCs can use this information in order to know where to invest more of their budget based on whats more popular. Some athletes appear several times in the same year for the same season, therefore removal of duplicates is necessary for more accurate results before placing those results in a table. The cleaning is done by concatenating the "Name", "Year" and "Season" for each athlete and selecting unique values from the newly created column. The table below shows the number of participants in both seasons from Greece 1896 to Tokyo 2020. 
+
+Note that an athlete is counted every time they participate in games held in different years and/or seasons.
+
+```{r}
+season_count <- olympics_data %>% 
+  select(Name, Year, Season) %>% 
+  apply(1,paste,collapse=" ") %>% 
+  unique() %>%
+  stri_sub(-6)
+  
+season_count <- season_count %>% 
+ as.data.frame() %>% 
+ summarise(Season = c("Winter", "Summer"), Total =c(sum(season_count == "Winter"),sum(season_count == "Summer"))) 
+
+rmarkdown::paged_table(season_count)
+```
+
+The table can be represented by a horizontal bar chart. 
+
+```{r}
+season_count %>%
+  ggplot(aes(x=Season, y=Total)) +
+  geom_bar(stat="identity", fill = "steel blue") +
+  coord_flip() +
+  theme_classic() +
+  geom_text(aes(label=Total), position=position_stack(vjust=0.5), color="white", size=4.0) +
+  labs(title="Number of Participants in Winter and Summer Olympics 1896-2020", x = "Season", y = "Total Participants")
+```
+<br>
+Since the Summer Games are more popular than the winter games, it would be useful to know which sports are the most popular in the Summer Games. The table below shows the number of participants per sport from 1896-2020. Duplicate data was once again removed by using built in functions paste() and distinct(). 
+
+Note that an athlete is counted every time they participate in games held in different years and/or seasons.
+
+```{r}
+popular_summer <- olympics_data %>% 
+  select(Name, Year, Season, Sport) %>%
+  filter(Season=="Summer")
+  
+popular_summer$Combo <- apply(popular_summer,1,paste,collapse=" ")
+
+popular_summer <- popular_summer %>%
+  distinct() %>%
+  group_by(Sport) %>%
+  summarise(Total = n())
+
+rmarkdown::paged_table(popular_summer)
+```
+
+We are interested in knowing which sports are the top 10 summer sports. The vertical bar chart below shows the Top 10 Summer Sports. 
+
+Note that the [Athletics](https://www.kreedon.com/types-of-events-in-athletics/?amp) category in the Olympics has several events that fall underneath it as well as different leagues for both males and females, hence its very high participant number.
+
+```{r}
+popular_summer %>% 
+  arrange(desc(Total)) %>%
+  head(10) %>%
+  ggplot(aes(x=Sport, y=Total)) +
+  geom_bar(stat="identity", fill = "dark red") +
+  scale_x_discrete(guide = guide_axis(n.dodge=3)) +
+  geom_text(aes(label=Total), vjust= -0.3, color="black", size=3.0) +
+  labs(title="Number of Participants in Summer Games top 10 Sports 1896-2020", x = "Sport", y = "Total Participants") +
+  theme_classic()
+```
+
+
+
+## Conclusions
+
+To conclude, statistics in sports are always crucial. They help teams and NOCs and athletes understand the different patterns which arise, stakes, competition they are facing and help them work towards improvement.
+
+
+## References
+
+[1] [Dataset](https://www.kaggle.com/datasets/fearsomejockey/olympics-dataset-2020-tokyo-dataset)
+
+[2] [How Athletes are Selected](https://www.teamusa.org/team-usa-athlete-services/team-selection)
+
+[3] [Competing in the Olympic Games](https://olympics.com/ioc/faq/competing-and-being-part-of-the-games)
+
